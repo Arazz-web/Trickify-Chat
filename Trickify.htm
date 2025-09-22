@@ -1,99 +1,90 @@
 <!doctype html>
 <html lang="hi">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>⚡ Trickify — Chat + Web Search</title>
-
-  <style>
-    body { font-family: sans-serif; background:#f2f2f2; margin:0; padding:0; }
-    #chat { max-width:600px; margin:20px auto; background:white; border-radius:12px;
-            padding:16px; height:70vh; overflow-y:auto; box-shadow:0 4px 12px rgba(0,0,0,0.1); }
-    .bubble { padding:10px 14px; margin:8px; border-radius:12px; max-width:85%; line-height:1.4; }
-    .user { background:#0078ff; color:white; margin-left:auto; }
-    .bot { background:#eee; color:#222; margin-right:auto; }
-    #inputRow { display:flex; max-width:600px; margin:10px auto; }
-    #userInput { flex:1; padding:10px; border-radius:8px; border:1px solid #ccc; }
-    button { margin-left:8px; border:none; padding:0 16px; border-radius:8px; background:#0078ff; color:white; }
-    .export-btns { margin-top:6px; display:flex; gap:6px; flex-wrap:wrap; }
-    .export-btns button { background:#555; font-size:12px; padding:4px 8px; }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>⚡ Trickify — Chat + Web Search</title>
+<style>
+body{font-family:sans-serif;background:#f2f2f2;margin:0;padding:0;}
+#chat{max-width:600px;margin:20px auto;background:white;border-radius:12px;padding:16px;height:70vh;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,0.1);}
+.bubble{padding:10px 14px;margin:8px;border-radius:12px;max-width:85%;line-height:1.4;}
+.user{background:#0078ff;color:white;margin-left:auto;}
+.bot{background:#eee;color:#222;margin-right:auto;}
+#inputRow{display:flex;max-width:600px;margin:10px auto;}
+#userInput{flex:1;padding:10px;border-radius:8px;border:1px solid #ccc;}
+button{margin-left:8px;border:none;padding:0 16px;border-radius:8px;background:#0078ff;color:white;}
+.export-btns{margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;}
+.export-btns button{background:#555;font-size:12px;padding:4px 8px;}
+</style>
 </head>
 <body>
-  <div id="chat"></div>
-  <div id="inputRow">
-    <input id="userInput" placeholder="कुछ भी पूछें..." />
-    <button onclick="sendMessage()">Send</button>
-  </div>
+<div id="chat"></div>
+<div id="inputRow">
+<input id="userInput" placeholder="कुछ भी पूछें...">
+<button onclick="sendMessage()">Send</button>
+</div>
+<script>
+let chat=document.getElementById("chat");
+let lastAnswerText="";
 
-  <script>
-    let chat = document.getElementById("chat");
-    let lastAnswerText = "";
+function addBubble(text,who){
+let div=document.createElement("div");
+div.className="bubble "+who;
+div.textContent=text;
+chat.appendChild(div);
+chat.scrollTop=chat.scrollHeight;
+return div;
+}
 
-    function addBubble(text, who){
-      let div = document.createElement("div");
-      div.className = "bubble " + who;
-      div.textContent = text;
-      chat.appendChild(div);
-      chat.scrollTop = chat.scrollHeight;
-      return div;
-    }
+async function typeWriterEffect(el,text,speed=15){
+el.innerHTML="";
+for(let i=0;i<text.length;i++){
+el.innerHTML+=text[i];
+await new Promise(r=>setTimeout(r,speed));
+chat.scrollTop=chat.scrollHeight;
+}
+}
 
-    async function typeWriterEffect(el, text, speed=15){
-      el.innerHTML = "";
-      for(let i=0; i<text.length; i++){
-        el.innerHTML += text[i];
-        await new Promise(r => setTimeout(r, speed));
-        chat.scrollTop = chat.scrollHeight;
-      }
-    }
+function attachExportControls(bubble,text){
+let c=document.createElement("div");
+c.className="export-btns";
+let copyBtn=document.createElement("button");
+copyBtn.textContent="Copy";
+copyBtn.onclick=()=>{navigator.clipboard.writeText(text);alert("Copied!");};
+c.appendChild(copyBtn);
+bubble.appendChild(c);
+}
 
-    function attachExportControls(bubble, text){
-      let c = document.createElement("div");
-      c.className = "export-btns";
-      let copyBtn = document.createElement("button");
-      copyBtn.textContent = "Copy";
-      copyBtn.onclick = () => { navigator.clipboard.writeText(text); alert("Copied!"); };
-      c.appendChild(copyBtn);
-      bubble.appendChild(c);
-    }
+async function sendMessage(){
+let input=document.getElementById("userInput");
+let text=input.value.trim();
+if(!text) return;
+addBubble(text,"user");
+input.value="";
+await analyzeText(text);
+}
 
-    async function sendMessage(){
-      let input = document.getElementById("userInput");
-      let text = input.value.trim();
-      if(!text) return;
-      addBubble(text, "user");
-      input.value = "";
-      await analyzeText(text);
-    }
-
-    // 🔎 नया analyzeText — backend से web search results लाने के लिए
-    async function analyzeText(text){
-      const placeholder = addBubble("🤖 Searching...", "bot");
-      try{
-        const resp = await fetch('http://localhost:3000/api/search', {
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ query: text })
-        });
-        if(!resp.ok){ placeholder.innerHTML="❌ Server error"; return; }
-        const data = await resp.json();
-
-        let answer = `🔎 Results for: "${data.query}"\n\n`;
-        if(data.results && data.results.length){
-          data.results.forEach((r,i)=>{
-            answer += `${i+1}. ${r.title}\n${r.snippet || ''}\n${r.link}\n\n`;
-          });
-        } else {
-          answer += "No results found.";
-        }
-        await typeWriterEffect(placeholder, answer, 12);
-        lastAnswerText = answer;
-        attachExportControls(placeholder, answer);
-      } catch(e){
-        placeholder.innerHTML = "❌ Fetch error: " + e.message;
-      }
-    }
-  </script>
+async function analyzeText(text){
+const placeholder=addBubble("🤖 Searching...","bot");
+try{
+const resp=await fetch('https://0b5d1e7c-2b60-47f4-872f-3c08e9705ce5.up.railway.app/api/search',{
+method:'POST',
+headers:{'Content-Type':'application/json'},
+body:JSON.stringify({query:text})
+});
+if(!resp.ok){placeholder.innerHTML="❌ Server error";return;}
+const data=await resp.json();
+let answer=`🔎 Results for: "${data.query}"\n\n`;
+if(data.results && data.results.length){
+data.results.forEach((r,i)=>{
+answer+=`${i+1}. ${r.title}\n${r.snippet||''}\n${r.link}\n\n`;
+});
+}else{answer+="No results found.";}
+await typeWriterEffect(placeholder,answer,12);
+lastAnswerText=answer;
+attachExportControls(placeholder,answer);
+}catch(e){placeholder.innerHTML="❌ Fetch error: "+e.message;}
+}
+</script>
 </body>
 </html>

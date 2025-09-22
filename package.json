@@ -1,0 +1,17 @@
+{
+  "name": "trickify-backend",
+  "version": "1.0.0",
+  "main": "server-ddg.js",
+  "scripts": {
+    "start": "node server-ddg.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "node-fetch": "^2.6.12",
+    "cheerio": "^1.0.0-rc.12",
+    "cors": "^2.8.5"
+  },
+  "engines": {
+    "node": "18.x"
+  }
+}
